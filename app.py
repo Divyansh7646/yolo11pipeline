@@ -151,8 +151,6 @@ if uploaded_file:
             logo_near_igps = False
             for igps_pallet in igps_boxes:
                 if is_logo_near_pallet(logo, igps_pallet):
-                    # Even if iGPS pallet detection missed this logo's pallet, 
-                    # but there's a nearby iGPS pallet, still count the logo
                     logo_near_igps = True
                     break
             
@@ -167,16 +165,12 @@ if uploaded_file:
             should_count_logo = False
             
             if logo_near_igps:
-                # LOGIC 2: Logo near iGPS pallet - count it (missed iGPS detection)
                 should_count_logo = True
             elif logo_in_non_igps_area:
-                # LOGIC 3: Logo detected in non-iGPS stack - count as iGPS pallet
                 should_count_logo = True
             elif len(igps_boxes) == 0 and len(non_igps_boxes) > 0:
-                # LOGIC 3: No iGPS detected but logo present in image with non-iGPS pallets
                 should_count_logo = True
             elif len(igps_boxes) == 0 and len(non_igps_boxes) == 0:
-                # Standalone logo with no other pallets detected
                 should_count_logo = True
             
             if should_count_logo:
@@ -205,7 +199,7 @@ if uploaded_file:
                 
             if logos_processed > additional_from_logos:
                 ignored_logos = logos_processed - additional_from_logos
-                st.info(f"ℹ️ {ignored_logos} logo(s) ignored (already within detected iGPS pallets - no double counting)")
+                st.info(f"ℹ️ {ignored_logos} logo(s) ignored (already within detected iGPS pallets)")
 
             st.markdown("### 📊 Number of Pallets Detected per Class")
             st.write(f"**igps:** {igps_count} (Original: {original_igps_count}, From logos: {additional_from_logos})")
