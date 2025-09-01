@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 3
+names: ['igps', 'igps_logo', 'non-igps']
+
+roboflow:
+  workspace: palletdetection-czymr
+  project: palletdetection3-ihucx
+  version: 3
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/palletdetection-czymr/palletdetection3-ihucx/dataset/3
