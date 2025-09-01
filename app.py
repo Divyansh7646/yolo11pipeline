@@ -10,7 +10,7 @@ from datetime import datetime
 # ==========================
 # CONFIG
 # ==========================
-MODEL_PATH = "runs/train/igps_vs_nonigps_stage2/weights/best.pt"
+MODEL_PATH = "weights/best_final.pt"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Logo processing thresholds
