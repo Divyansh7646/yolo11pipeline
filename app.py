@@ -8,6 +8,11 @@ import os
 from datetime import datetime
 
 # ==========================
+# PAGE CONFIG (must be first Streamlit call)
+# ==========================
+st.set_page_config(page_title="iGPS Pallet Detector", layout="centered")
+
+# ==========================
 # CONFIG
 # ==========================
 MODEL_PATH = "weights/best_final.pt"
@@ -42,9 +47,8 @@ def load_model(path):
 model = load_model(MODEL_PATH)
 
 # ==========================
-# PAGE CONFIG
+# PAGE STYLING
 # ==========================
-st.set_page_config(page_title="iGPS Pallet Detector", layout="centered")
 st.markdown("""
 <style>
 .main {background-color: #f4f4f8;}
