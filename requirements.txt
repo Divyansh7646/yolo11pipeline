@@ -1,13 +1,13 @@
 streamlit==1.38.0
 
-# PyTorch CPU build
-torch==2.5.1
+# PyTorch (CPU build, matching versions)
+torch==2.7.0
 torchvision==0.22.0
 
 # YOLO
 ultralytics==8.3.25
 
-# OpenCV (needs libgl1 from packages.txt)
+# OpenCV (headless, no GUI deps)
 opencv-python-headless==4.10.0.84
 
 # Basics
