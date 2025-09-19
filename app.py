@@ -70,132 +70,143 @@ if uploaded_file:
         file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
         image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-        # Run YOLO inference
-        results = model(image, conf=confidence, device=DEVICE)
-        result = results[0]
-        annotated_image = result.plot()
-        annotated_image_rgb = cv2.cvtColor(annotated_image, cv2.COLOR_BGR2RGB)
-
-        # ==========================
-        # PROCESS DETECTIONS
-        # ==========================
-        igps_boxes = []
-        non_igps_boxes = []
-        logos = []
-        detections = []
-
-        for box in result.boxes.data.tolist():
-            x1, y1, x2, y2, conf_score, cls = box
-            cls_name = model.names[int(cls)]
-            bbox = [int(x1), int(y1), int(x2), int(y2)]
-
-            detections.append({
-                "class": cls_name,
-                "confidence": round(conf_score, 2),
-                "bbox": bbox
-            })
-
-            if cls_name == "igps":
-                igps_boxes.append(bbox)
-            elif cls_name == "non-igps":
-                non_igps_boxes.append(bbox)
-            elif cls_name == "igps_logo":
-                logos.append(bbox)
-
-        # ==========================
-        # LOGO PROCESSING
-        # ==========================
-        def is_logo_inside_pallet(logo_box, pallet_box, threshold=0.5):
-            return iou(logo_box, pallet_box) > threshold
-
-        def is_logo_near_pallet(logo_box, pallet_box, distance_threshold=DISTANCE_THRESHOLD_NEARBY):
-            logo_center_x = (logo_box[0] + logo_box[2]) / 2
-            logo_center_y = (logo_box[1] + logo_box[3]) / 2
-            pallet_center_x = (pallet_box[0] + pallet_box[2]) / 2
-            pallet_center_y = (pallet_box[1] + pallet_box[3]) / 2
-            distance = ((logo_center_x - pallet_center_x)**2 + (logo_center_y - pallet_center_y)**2)**0.5
-            return distance <= distance_threshold
-
-        igps_count = len(igps_boxes)
-        additional_igps_from_logos = []
-
-        for logo in logos:
-            logo_inside_detected_igps = any(is_logo_inside_pallet(logo, igps) for igps in igps_boxes)
-            if logo_inside_detected_igps:
-                continue
-
-            logo_near_igps = any(is_logo_near_pallet(logo, igps) for igps in igps_boxes)
-            logo_in_non_igps_area = any(is_logo_inside_pallet(logo, non, 0.3) for non in non_igps_boxes)
-
-            should_count_logo = False
-            if logo_near_igps or logo_in_non_igps_area:
-                should_count_logo = True
-            elif len(igps_boxes) == 0:
-                should_count_logo = True
-
-            if should_count_logo:
-                additional_igps_from_logos.append(logo)
-                igps_count += 1
-
-        igps_boxes.extend(additional_igps_from_logos)
-        total_pallets = igps_count + len(non_igps_boxes)
-
-        # ==========================
-        # DISPLAY RESULTS
-        # ==========================
-        if detections:
-            st.image(annotated_image_rgb, caption="🖼️ Detected Pallets", use_container_width=True)
-            st.subheader(f"📦 Total Pallets Detected: {total_pallets}")
-
-            original_igps_count = len([d for d in detections if d["class"] == "igps"])
-            logos_processed = len(logos)
-            additional_from_logos = len(additional_igps_from_logos)
-
-            if additional_from_logos > 0:
-                st.success(f"✅ {additional_from_logos} additional iGPS pallet(s) identified through logo detection!")
-
-            if logos_processed > additional_from_logos:
-                ignored_logos = logos_processed - additional_from_logos
-                st.info(f"ℹ️ {ignored_logos} logo(s) ignored (already within detected iGPS pallets)")
-
-            st.markdown("### 📊 Number of Pallets Detected per Class")
-            st.write(f"**igps:** {igps_count} (Original: {original_igps_count}, From logos: {additional_from_logos})")
-            st.write(f"**non-igps:** {len(non_igps_boxes)}")
-            if logos_processed > 0:
-                st.write(f"**logos detected:** {logos_processed}")
-
-            st.markdown("### 🧾 Detection Details")
-            st.dataframe(detections, use_container_width=True)
-
-            json_data = json.dumps({
-                "filename": uploaded_file.name,
-                "timestamp": datetime.now().isoformat(),
-                "total_pallets": total_pallets,
-                "igps_count": igps_count,
-                "igps_breakdown": {
-                    "original_detections": original_igps_count,
-                    "additional_from_logos": additional_from_logos,
-                    "logos_processed": logos_processed
-                },
-                "non_igps_count": len(non_igps_boxes),
-                "detections": detections,
-                "logo_processing_summary": {
-                    "total_logos_detected": logos_processed,
-                    "logos_counted_as_igps": additional_from_logos,
-                    "logos_ignored_double_count": logos_processed - additional_from_logos
-                }
-            }, indent=4)
-
-            json_filename = f"results_{os.path.splitext(uploaded_file.name)[0]}.json"
-            with st.expander("📄 View JSON Result"):
-                st.code(json_data, language="json")
-            st.download_button(
-                label="📥 Download Detection JSON",
-                data=json_data,
-                file_name=json_filename,
-                mime="application/json"
-            )
+        if image is None:
+            st.error("🚫 Unable to read the uploaded image. Please try another file.")
         else:
-            st.warning("🚫 No pallets or logos detected in this image.")
+            # Run YOLO inference
+            results = model(image, conf=confidence, device=DEVICE)
+            if not results or len(results) == 0:
+                st.warning("🚫 YOLO returned no results for this image.")
+            else:
+                result = results[0]
+                annotated_image = result.plot() if hasattr(result, 'plot') else image
+                if annotated_image is not None and annotated_image.size > 0:
+                    annotated_image_rgb = cv2.cvtColor(annotated_image, cv2.COLOR_BGR2RGB)
+                else:
+                    annotated_image_rgb = image.copy()
+
+                # ==========================
+                # PROCESS DETECTIONS
+                # ==========================
+                igps_boxes = []
+                non_igps_boxes = []
+                logos = []
+                detections = []
+
+                for box in getattr(result.boxes, 'data', []):
+                    x1, y1, x2, y2, conf_score, cls = box
+                    cls_name = model.names[int(cls)]
+                    bbox = [int(x1), int(y1), int(x2), int(y2)]
+
+                    detections.append({
+                        "class": cls_name,
+                        "confidence": round(conf_score, 2),
+                        "bbox": bbox
+                    })
+
+                    if cls_name == "igps":
+                        igps_boxes.append(bbox)
+                    elif cls_name == "non-igps":
+                        non_igps_boxes.append(bbox)
+                    elif cls_name == "igps_logo":
+                        logos.append(bbox)
+
+                # ==========================
+                # LOGO PROCESSING
+                # ==========================
+                def is_logo_inside_pallet(logo_box, pallet_box, threshold=0.5):
+                    return iou(logo_box, pallet_box) > threshold
+
+                def is_logo_near_pallet(logo_box, pallet_box, distance_threshold=DISTANCE_THRESHOLD_NEARBY):
+                    logo_center_x = (logo_box[0] + logo_box[2]) / 2
+                    logo_center_y = (logo_box[1] + logo_box[3]) / 2
+                    pallet_center_x = (pallet_box[0] + pallet_box[2]) / 2
+                    pallet_center_y = (pallet_box[1] + pallet_box[3]) / 2
+                    distance = ((logo_center_x - pallet_center_x)**2 + (logo_center_y - pallet_center_y)**2)**0.5
+                    return distance <= distance_threshold
+
+                igps_count = len(igps_boxes)
+                additional_igps_from_logos = []
+
+                for logo in logos:
+                    logo_inside_detected_igps = any(is_logo_inside_pallet(logo, igps) for igps in igps_boxes)
+                    if logo_inside_detected_igps:
+                        continue
+
+                    logo_near_igps = any(is_logo_near_pallet(logo, igps) for igps in igps_boxes)
+                    logo_in_non_igps_area = any(is_logo_inside_pallet(logo, non, 0.3) for non in non_igps_boxes)
+
+                    should_count_logo = False
+                    if logo_near_igps or logo_in_non_igps_area:
+                        should_count_logo = True
+                    elif len(igps_boxes) == 0:
+                        should_count_logo = True
+
+                    if should_count_logo:
+                        additional_igps_from_logos.append(logo)
+                        igps_count += 1
+
+                igps_boxes.extend(additional_igps_from_logos)
+                total_pallets = igps_count + len(non_igps_boxes)
+
+                # ==========================
+                # DISPLAY RESULTS
+                # ==========================
+                if annotated_image_rgb is not None and annotated_image_rgb.size > 0:
+                    st.image(annotated_image_rgb, caption="🖼️ Detected Pallets", use_container_width=True)
+
+                if detections:
+                    st.subheader(f"📦 Total Pallets Detected: {total_pallets}")
+
+                    original_igps_count = len([d for d in detections if d["class"] == "igps"])
+                    logos_processed = len(logos)
+                    additional_from_logos = len(additional_igps_from_logos)
+
+                    if additional_from_logos > 0:
+                        st.success(f"✅ {additional_from_logos} additional iGPS pallet(s) identified through logo detection!")
+
+                    if logos_processed > additional_from_logos:
+                        ignored_logos = logos_processed - additional_from_logos
+                        st.info(f"ℹ️ {ignored_logos} logo(s) ignored (already within detected iGPS pallets)")
+
+                    st.markdown("### 📊 Number of Pallets Detected per Class")
+                    st.write(f"**igps:** {igps_count} (Original: {original_igps_count}, From logos: {additional_from_logos})")
+                    st.write(f"**non-igps:** {len(non_igps_boxes)}")
+                    if logos_processed > 0:
+                        st.write(f"**logos detected:** {logos_processed}")
+
+                    st.markdown("### 🧾 Detection Details")
+                    st.dataframe(detections, use_container_width=True)
+
+                    json_data = json.dumps({
+                        "filename": uploaded_file.name,
+                        "timestamp": datetime.now().isoformat(),
+                        "total_pallets": total_pallets,
+                        "igps_count": igps_count,
+                        "igps_breakdown": {
+                            "original_detections": original_igps_count,
+                            "additional_from_logos": additional_from_logos,
+                            "logos_processed": logos_processed
+                        },
+                        "non_igps_count": len(non_igps_boxes),
+                        "detections": detections,
+                        "logo_processing_summary": {
+                            "total_logos_detected": logos_processed,
+                            "logos_counted_as_igps": additional_from_logos,
+                            "logos_ignored_double_count": logos_processed - additional_from_logos
+                        }
+                    }, indent=4)
+
+                    json_filename = f"results_{os.path.splitext(uploaded_file.name)[0]}.json"
+                    with st.expander("📄 View JSON Result"):
+                        st.code(json_data, language="json")
+                    st.download_button(
+                        label="📥 Download Detection JSON",
+                        data=json_data,
+                        file_name=json_filename,
+                        mime="application/json"
+                    )
+                else:
+                    st.warning("🚫 No pallets or logos detected in this image.")
 else:
     st.info("📤 Upload a marketplace image to begin.")
