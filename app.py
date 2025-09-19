@@ -74,12 +74,12 @@ if uploaded_file:
         results = model(image, conf=confidence, device=DEVICE)
         result = results[0]
 
-        # Annotated image (safe check)
+        # Annotate image safely
         annotated_image = result.plot()
         if annotated_image is not None:
             annotated_image_rgb = cv2.cvtColor(annotated_image, cv2.COLOR_BGR2RGB)
         else:
-            annotated_image_rgb = image.copy()
+            annotated_image_rgb = None
 
         # ==========================
         # PROCESS DETECTIONS
@@ -89,20 +89,14 @@ if uploaded_file:
         logos = []
         detections = []
 
-        for box in result.boxes.data.tolist():
-            if len(box) < 6:
-                continue  # skip malformed detection
+        for box in getattr(result.boxes, "data", []).tolist():
             x1, y1, x2, y2, conf_score, cls = box
-            try:
-                conf_score = float(conf_score)
-            except:
-                conf_score = 0.0
             cls_name = model.names[int(cls)]
             bbox = [int(x1), int(y1), int(x2), int(y2)]
 
             detections.append({
                 "class": cls_name,
-                "confidence": round(conf_score, 2),
+                "confidence": round(float(conf_score), 2),
                 "bbox": bbox
             })
 
@@ -155,7 +149,11 @@ if uploaded_file:
         # DISPLAY RESULTS
         # ==========================
         if detections:
-            st.image(annotated_image_rgb, caption="🖼️ Detected Pallets", use_container_width=True)
+            if annotated_image_rgb is not None:
+                st.image(annotated_image_rgb, caption="🖼️ Detected Pallets", use_container_width=True)
+            else:
+                st.warning("🚫 Could not generate annotated image for display.")
+
             st.subheader(f"📦 Total Pallets Detected: {total_pallets}")
 
             original_igps_count = len([d for d in detections if d["class"] == "igps"])
