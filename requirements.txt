@@ -1,20 +1,17 @@
 streamlit==1.38.0
 
-# Torch 2.3.1 wheels are no longer provided on PyPI index used here (only 2.5.x+ listed),
-# and you are on Python 3.10.11. Use a currently available stable pair:
-#   torch 2.5.1 + torchvision 0.20.1 (compatible)  (2.5.1 supports Python >=3.9)
-# If you need GPU (CUDA 12.4 for 2.5.1) install via: pip install torch==2.5.1+cu124 torchvision==0.20.1+cu124 --index-url https://download.pytorch.org/whl/cu124
-# For CPU-only keep the default index (no +cpu tag needed on Windows):
+# PyTorch CPU build
 torch==2.5.1
-torchvision==0.20.1
+torchvision==0.22.0
 
-# Ultralytics version pinned; update cautiously alongside torch upgrades
+# YOLO
 ultralytics==8.3.25
 
-# Newer headless OpenCV build (needs libgl1 at runtime on Linux even if headless)
+# OpenCV (needs libgl1 from packages.txt)
 opencv-python-headless==4.10.0.84
+
+# Basics
 numpy==1.26.4
 Pillow==10.4.0
 PyYAML==6.0.2
-# Extra explicit dependency used indirectly (sometimes helps resolution in slim envs)
 typing-extensions>=4.10.0
