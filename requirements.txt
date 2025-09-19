@@ -1,8 +1,12 @@
 streamlit==1.38.0
-torch==2.3.1+cpu
-torchvision==0.18.1+cpu
+# Use standard CPU wheels; removing +cpu makes pip choose the default (CPU-only) wheel on Linux
+torch==2.3.1
+torchvision==0.18.1
 ultralytics==8.3.25
-opencv-python-headless==4.7.0.72
+# Newer headless OpenCV build (needs libgl1 at runtime even if headless)
+opencv-python-headless==4.10.0.84
 numpy==1.26.4
 Pillow==10.4.0
 PyYAML==6.0.2
+# Extra explicit dependency used indirectly (sometimes helps resolution in slim envs)
+typing-extensions>=4.10.0
